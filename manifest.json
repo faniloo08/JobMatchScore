@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Job Match Score",
+  "version": "1.0",
+  "description": "Evaluez la compatibilité candidat-offre",
+  "permissions": ["activeTab", "scripting", "tabs"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Job Match Score"
+  },
+  "host_permissions": [
+    "https://app.wink-lab.com/*",
+    "https://apply.wink-lab.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://app.wink-lab.com/*", "https://apply.wink-lab.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page_inject.js"],
+      "matches": ["https://*.wink-lab.com/*"]
+    }
+  ]
+}
