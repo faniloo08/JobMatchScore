@@ -281,23 +281,40 @@ function displayResult(results) {
   const resultScreen = document.getElementById('resultScreen');
   const content = resultScreen.querySelector('#resultContent');
 
-  const itemsHtml = (results.reasons || []).map(r => `
-    <div class="summary-item">
-      <span class="check">✓</span>
-      <span>${r}</span>
-    </div>
-  `).join('');
+  // Déterminer la couleur en fonction du score
+  let scoreColor;
+  if (results.score < 40) {
+    scoreColor = '#ef4444'; // rouge
+  } else if (results.score < 70) {
+    scoreColor = '#eab308'; // jaune
+  } else {
+    scoreColor = '#22c55e'; // vert
+  }
+
+  const itemsHtml = (results.reasons || []).map(r => {
+    // Vérifier si c'est un point négatif (commence par "Cependant")
+    const isNegative = r.trim().startsWith('Cependant');
+    const icon = isNegative ? '✗' : '✓';
+    const iconColor = isNegative ? '#ef4444' : '#22c55e';
+    
+    return `
+      <div class="summary-item">
+        <span class="check" style="color: ${iconColor};">${icon}</span>
+        <span>${r}</span>
+      </div>
+    `;
+  }).join('');
 
   content.innerHTML = `
     <div class="score-box">
       <div class="score-label">Score d'adéquation</div>
       <div class="score-circle">
         <div style="text-align: center; margin-top: 45px;">
-          <div class="score-percent">${results.score}</div>
-          <div class="score-unit">%</div>
+          <div class="score-percent" style="color: ${scoreColor};">${results.score}</div>
+          <div class="score-unit" style="color: ${scoreColor};">%</div>
         </div>
       </div>
-      <div class="verdict">
+      <div class="verdict" style="color: ${scoreColor};">
         <span>${results.verdict}</span>
       </div>
     </div>

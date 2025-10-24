@@ -14,8 +14,21 @@ app.post("/analyze", async (req, res) => {
     const { candidate, offer } = req.body;
 
     const prompt = `
-Compare le profil du candidat et l'offre suivante et renvoie un score d’adéquation (0 à 100)
-et un résumé synthétique. Voici les données :
+Analyse la compatibilité entre le profil du candidat et l'offre d'emploi suivante, et attribue un score d’adéquation compris entre 0 et 100.
+
+Évalue précisément :
+1. Les compétences techniques et fonctionnelles mentionnées.
+2. Les années d’expérience et le niveau du candidat (Junior, Confirmé, Sénior), surtout pour les postes de développeur.
+3. La correspondance du poste visé, du secteur d’activité et des responsabilités.
+4. La cohérence entre les soft skills attendues et celles du candidat.
+5. Le niveau d’étude ou de certification si présent.
+
+⚙️ Barème suggéré :
+- 70–100 : Très bonne adéquation
+- 40–69 : Adéquation moyenne
+- 0–39 : Faible adéquation
+
+Voici les données :
 
 CANDIDAT:
 ${JSON.stringify(candidate, null, 2)}
