@@ -37,7 +37,8 @@
       experiences: [],
       skills: [],
       education: null,
-      name: null
+      name: null,
+      email: null  // 🔴 Garde comme null, pas comme tableau
     };
 
     try {
@@ -72,7 +73,16 @@
         const s = el.textContent?.trim();
         if (s) candidate.skills.push(s);
       });
-
+      
+      // 🔥 EMAIL - juste récupérer le premier élément trouvé
+      const emailEl = document.querySelector('.coaXaZaR');
+      if (emailEl) {
+        candidate.email = emailEl.textContent?.trim() || null;
+        LOG('Email trouvé:', candidate.email);
+      } else {
+        LOG('⚠️ Aucun email trouvé avec .coaXaZaR');
+      }
+    
       // education (badge)
       const educationBadge = document.querySelector('.cmqlj, .cmqlt');
       if (educationBadge) candidate.education = educationBadge.textContent?.trim();
@@ -87,6 +97,56 @@
     LOG('Candidate =>', candidate);
     return candidate;
   }
+  // ==========================================================
+// Fonction utilitaire : extraire uniquement l'email du candidat
+// ==========================================================
+function extractCandidateEmail() {
+  LOG('Extraction email candidat...');
+  
+  const emailEl = document.querySelector('.coaXaZaR');
+  
+  if (emailEl) {
+    const email = emailEl.textContent?.trim() || null;
+    LOG('Email trouvé:', email);
+    return email;
+  }
+  
+  LOG('⚠️ Aucun email trouvé avec .coaXaZaR');
+  return null;
+}
+
+function checkCandidateScore() {
+  const email = extractCandidateEmail();
+  if (!email) return;
+
+  const key = "score_" + email;
+
+  chrome.storage.local.get([key], result => {
+    // 🔥 CORRECTION : Vérifier que le score existe vraiment pour CET email
+    if (result[key] !== undefined && result[key] !== null) {
+      console.log("📌 Score trouvé pour cet email -> injection:", result[key]);
+      insertScoreBadge(result[key]);
+    } else {
+      console.log("ℹ️ Aucun score pour cet email:", email);
+      // 🔥 IMPORTANT : Supprimer le badge s'il existe (cas navigation entre candidats)
+      const existing = document.querySelector('#jobmatch-score-badge');
+      if (existing) {
+        existing.remove();
+        console.log("🗑️ Badge du candidat précédent supprimé");
+      }
+    }
+  });
+}
+
+// ✅ On observe les changements, exemple sur le body
+const observer = new MutationObserver(() => {
+  checkCandidateScore();
+});
+
+observer.observe(document.body, { childList: true, subtree: true });
+
+// 🔥 Vérifier dès le chargement
+checkCandidateScore();
 
   // ---------------------------
   // 2) Inject page_inject.js into page context (only once)
@@ -284,32 +344,50 @@
   // ---------------------------
   chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     try {
-      LOG('Message reçu from popup:', req.action);
-      if (req.action === 'extractCandidate') {
+      console.log("[content.js] Message reçu:", req);
+
+      if (req.action === "insertScore") {
+        const score = req.score;
+        const email = extractCandidateEmail();
+
+        if (!email) {
+          console.warn("[content.js] ⚠️ Email introuvable, score non sauvegardé");
+          sendResponse({ success: false });
+          return true;
+        }
+
+        const key = "score_" + email;
+
+        // ✅ Sauvegarder le score
+        chrome.storage.local.set({ [key]: score }, () => {
+          console.log("[content.js] Score sauvegardé pour:", email);
+          insertScoreBadge(score);
+          sendResponse({ success: true });
+        });
+
+        return true;
+      }
+
+      // 📌 Si tu as d’autres actions (extractCandidate / extractOffer)
+      if (req.action === "extractCandidate") {
         const data = extractCandidateData();
         sendResponse({ success: true, data });
-        return; // sync response fine
       }
 
-      if (req.action === 'extractOffer') {
-        // async path - keep channel open
+      if (req.action === "extractOffer") {
         extractOfferData()
           .then(data => sendResponse({ success: true, data }))
-          .catch(err => {
-            console.error('[content.js] extractOffer error', err);
-            sendResponse({ success: false, error: err.message || String(err) });
-          });
-        return true; // important for async sendResponse
+          .catch(err => sendResponse({ success: false, error: err.message }));
+        return true;
       }
 
-      // unknown action
-      sendResponse({ success: false, error: 'unknown_action' });
     } catch (e) {
-      console.error('[content.js] runtime.onMessage error', e);
+      console.error("[content.js] runtime.onMessage error", e);
       sendResponse({ success: false, error: e.message });
     }
-    // no return true here for sync early cases
   });
+
+
 
   // ---------------------------
   // 7) Small debug helper: show iframes accessible (on-demand)
@@ -326,4 +404,81 @@
   });
   */
 
+function insertScoreBadge(score) {
+  const repeatingGroup = document.querySelector('.bubble-element.RepeatingGroup.coaXaIaU2');
+  if (!repeatingGroup) {
+    console.warn("❌ RepeatingGroup badge introuvable");
+    return;
+  }
+
+  // ✅ Attendre que Bubble ait généré les badges
+  setTimeout(() => {
+    // 🔍 Supprimer un badge score existant pour éviter les doublons
+    const existing = repeatingGroup.querySelector('#jobmatch-score-badge');
+    if (existing) existing.remove();
+
+    // 🎨 Choisir la couleur en fonction du score
+    let bgVar = '--color_coJKe_default'; // défaut (bleu Bubble)
+    if (score >= 70) bgVar = '#00A878'; // vert
+    else if (score >= 40) bgVar = '#FFD700'; // jaune
+    else bgVar = '#E84545'; // rouge
+
+    // ✅ Création d'un badge identique aux autres
+    const entry = document.createElement('div');
+    entry.className = "bubble-element group-item bubble-r-container flex row entry-score";
+    entry.id = "jobmatch-score-badge";
+    entry.style.cssText = `
+      min-width: 0px; min-height: 20px; 
+      box-sizing: border-box; flex-grow: 0;
+      justify-content: flex-start;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    `;
+
+    entry.innerHTML = `
+      <div class="bubble-element Group coaXaHaR2 bubble-r-container relative"
+        style="background-color: ${bgVar}; border-radius: 9999px;
+        padding: 0px 8px; height: 20px; display:flex; align-items:center;
+        min-width:40px; max-height:20px;">
+        <div class="bubble-element Text coaXaHaW2 bubble-r-vertical-center"
+          style="font-size:12px; font-weight:600; color:white;">
+          <div>Score: ${score} ✕</div>
+        </div>
+      </div>
+    `;
+
+    // 🔥 Événement de suppression au clic
+    entry.addEventListener('click', (e) => {
+      e.stopPropagation(); // Empêcher la propagation du clic
+      entry.style.opacity = '0';
+      setTimeout(() => entry.remove(), 200); // Animation de disparition
+      console.log("🗑️ Badge score supprimé");
+      
+      // 🔥 Optionnel : supprimer aussi du storage
+      const email = extractCandidateEmail();
+      if (email) {
+        const key = "score_" + email;
+        chrome.storage.local.remove(key, () => {
+          console.log("🗑️ Score supprimé du storage pour:", email);
+        });
+      }
+    });
+
+    // Effet hover
+    entry.addEventListener('mouseenter', () => {
+      entry.style.opacity = '0.7';
+    });
+    entry.addEventListener('mouseleave', () => {
+      entry.style.opacity = '1';
+    });
+
+    // ✅ Ajout en premier (badge prioritaire)
+    repeatingGroup.prepend(entry);
+
+    console.log("✅ Score badge ajouté !", score);
+  }, 300);
+}
+
+
 })(); // end wrapper
+

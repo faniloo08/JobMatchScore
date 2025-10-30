@@ -1,5 +1,6 @@
 let candidateData = null;
 let analysisResults = null;
+let candidateTabId = null; // 🔥 Stocker l'ID de l'onglet du candidat
 
 document.getElementById('analyzeBtn').addEventListener('click', analyzeMatch);
 document.getElementById('cancelBtn').addEventListener('click', closeExtension);
@@ -45,8 +46,12 @@ async function analyzeMatch() {
   }
 
   showLoading();
-
+  
   try {
+    // ✅ Sauvegarde l'onglet candidat avant d'en ouvrir un nouveau
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const candidateTabId = activeTab?.id;
+
     // Créer un onglet temporaire pour charger l'offre
     chrome.tabs.create({ url: offerUrl, active: false }, (tab) => {
       let attempts = 0;
@@ -82,6 +87,16 @@ async function analyzeMatch() {
               console.log('🤖 Résultats d\'analyse:', analysisResults);
 
               displayResult(analysisResults);
+
+              // Injecter le score dans la page du candidat
+              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                  chrome.tabs.sendMessage(tabs[0].id, {
+                    action: "insertScore",
+                    score: analysisResults.score  // ✅ ici on utilise directement result
+                  });
+                }
+              });
             } catch (err) {
               console.error('Erreur IA:', err);
               showError('Erreur pendant l\'analyse IA.');
@@ -290,6 +305,7 @@ function displayResult(results) {
   } else {
     scoreColor = '#22c55e'; // vert
   }
+  
 
   const itemsHtml = (results.reasons || []).map(r => {
     // Vérifier si c'est un point négatif (commence par "Cependant")
@@ -326,6 +342,7 @@ function displayResult(results) {
 }
 
 
+
 function showError(message) {
   const resultScreen = document.getElementById('resultScreen');
   const inputScreen = document.getElementById('inputScreen');
@@ -353,3 +370,4 @@ function backToInput() {
 function closeExtension() {
   window.close();
 }
+

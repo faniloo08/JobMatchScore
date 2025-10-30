@@ -3,7 +3,7 @@
   "name": "Job Match Score",
   "version": "1.0",
   "description": "Evaluez la compatibilité candidat-offre",
-  "permissions": ["activeTab", "scripting", "tabs"],
+  "permissions": ["activeTab", "scripting", "tabs", "storage"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Job Match Score"
