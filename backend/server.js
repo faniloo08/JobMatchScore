@@ -44,16 +44,19 @@ Réponds sous ce format JSON:
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://jobmatchscore.onrender.com",
+        "X-Title": "JobMatch-AI"
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3.3-8b-instruct:free",
+        model: "meta-llama/llama-3-8b-instruct",
         messages: [
           { role: "system", content: "Tu es un assistant RH qui évalue l’adéquation entre un candidat et une offre d’emploi." },
           { role: "user", content: prompt }
         ]
       })
     });
+
 
     const data = await response.json();
     let content = data.choices?.[0]?.message?.content || "{}";
