@@ -45,7 +45,7 @@ Réponds sous ce format JSON:
       headers: {
         "Authorization": `Bearer ${OPENROUTER_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://jobmatchscore.onrender.com",
+        "HTTP-Referer": "http://srv1057289.hstgr.cloud:5000/",
         "X-Title": "JobMatch-AI"
       },
       body: JSON.stringify({

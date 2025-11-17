@@ -77,7 +77,7 @@ async function analyzeMatch() {
 
             try {
               // 🔥 Appel IA à ton backend Meta
-              const res = await fetch("https://jobmatchscore.onrender.com/analyze", {
+              const res = await fetch("http://srv1057289.hstgr.cloud:5000/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ candidate: candidateData, offer: offerData })
