@@ -73,12 +73,32 @@ Réponds sous ce format JSON:
     // Supprimer les backticks ou autres caractères parasites
     content = content.replace(/`/g, "").replace(/^```json|```$/g, "").trim();
 
+    const rawContent = data.choices?.[0]?.message?.content || "{}";
+
+    // 1️⃣ Extraire le premier bloc JSON trouvé
+    let jsonString = rawContent.match(/{[\s\S]*}/)?.[0] || "{}";
+
+    // 2️⃣ Supprimer backticks et caractères parasites
+    jsonString = jsonString.replace(/```json|```|`/g, "").trim();
+
+    // 3️⃣ Supprimer caractères invisibles ou unicode étranges
+    jsonString = jsonString.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+
+    // 4️⃣ Tenter de parser
     let parsed;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(jsonString);
     } catch (err) {
-      console.error("⚠️ Échec du parsing JSON:", content);
-      parsed = { error: "Invalid JSON from model", raw: content };
+      console.warn("⚠️ Échec du parsing JSON, tentative de nettoyage supplémentaire:", err);
+
+      // Optionnel : tenter un dernier nettoyage
+      const cleaned = jsonString.replace(/,\s*([\]}])/g, "$1"); // supprime virgules avant fermeture
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (err2) {
+        console.error("🔴 Échec final du parsing JSON:", cleaned);
+        parsed = { error: "Invalid JSON from model", raw: rawContent };
+      }
     }
 
     res.json(parsed);
