@@ -30,73 +30,92 @@
   // ---------------------------
   // 1) Candidate extraction (sync)
   // ---------------------------
-  function extractCandidateData() {
-    LOG('Extraction candidat ↴');
+function extractCandidateData() {
+  LOG('Extraction candidat ↴');
 
-    const candidate = {
-      experiences: [],
-      skills: [],
-      education: null,
-      name: null,
-      email: null  // 🔴 Garde comme null, pas comme tableau
-    };
+  const candidate = {
+    experiences: [],
+    skills: [],
+    education: [],   // 🔥 maintenant un tableau
+    name: null,
+    email: null
+  };
 
-    try {
-      // experiences (selectors kept from earlier)
-      const experienceItems = document.querySelectorAll('.coaXpr');
-      LOG('Expériences trouvées:', experienceItems.length);
+  try {
+    /** -------------------------
+     *  EXPERIENCES
+     * ------------------------*/
+    const experienceItems = document.querySelectorAll('.coaXpr');
+    LOG('Expériences trouvées:', experienceItems.length);
 
-      experienceItems.forEach((exp) => {
-        const title = exp.querySelector('[title]')?.textContent?.trim()
-          || exp.querySelector('.coaXqaC')?.textContent?.trim()
-          || '';
-        const company = exp.querySelector('.coaXqaD')?.textContent?.trim() || '';
-        const duration = exp.querySelector('.coaXqaE')?.textContent?.trim() || '';
-        const location = exp.querySelector('.coaXqaI')?.textContent?.trim() || '';
-        const description = exp.querySelector('.coaXqaK')?.textContent?.trim() || '';
+    experienceItems.forEach((exp) => {
+      const title = exp.querySelector('[title]')?.textContent?.trim()
+        || exp.querySelector('.coaXqaC')?.textContent?.trim()
+        || '';
+      const company = exp.querySelector('.coaXqaD')?.textContent?.trim() || '';
+      const duration = exp.querySelector('.coaXqaE')?.textContent?.trim() || '';
+      const location = exp.querySelector('.coaXqaI')?.textContent?.trim() || '';
+      const description = exp.querySelector('.coaXqaK')?.textContent?.trim() || '';
 
-        if (title || company) {
-          candidate.experiences.push({
-            title: title || 'N/A',
-            company: company || 'N/A',
-            duration: duration || 'N/A',
-            location: location || 'N/A',
-            description: description || ''
-          });
-        }
-      });
-
-      // skills
-      const skillEls = document.querySelectorAll('.coyik, .skill-tag');
-      LOG('Compétences trouvées:', skillEls.length);
-      skillEls.forEach(el => {
-        const s = el.textContent?.trim();
-        if (s) candidate.skills.push(s);
-      });
-      
-      // 🔥 EMAIL - juste récupérer le premier élément trouvé
-      const emailEl = document.querySelector('.coaXaZaR');
-      if (emailEl) {
-        candidate.email = emailEl.textContent?.trim() || null;
-        LOG('Email trouvé:', candidate.email);
-      } else {
-        LOG('⚠️ Aucun email trouvé avec .coaXaZaR');
+      if (title || company) {
+        candidate.experiences.push({
+          title: title || 'N/A',
+          company: company || 'N/A',
+          duration: duration || 'N/A',
+          location: location || 'N/A',
+          description: description || ''
+        });
       }
-    
-      // education (badge)
-      const educationBadge = document.querySelector('.cmqlj, .cmqlt');
-      if (educationBadge) candidate.education = educationBadge.textContent?.trim();
+    });
 
-      // name (if present)
-      candidate.name = textOf('.profile-name, .candidate-name, .coaXName');
+    /** -------------------------
+     *  SKILLS
+     * ------------------------*/
+    const skillEls = document.querySelectorAll('.coyik, .skill-tag');
+    LOG('Compétences trouvées:', skillEls.length);
+    skillEls.forEach(el => {
+      const s = el.textContent?.trim();
+      if (s) candidate.skills.push(s);
+    });
 
-    } catch (err) {
-      console.error('[content.js] extractCandidateData error', err);
+    /** -------------------------
+     *  EMAIL
+     * ------------------------*/
+    const emailEl = document.querySelector('.coaXaZaR');
+    if (emailEl) {
+      candidate.email = emailEl.textContent?.trim() || null;
+      LOG('Email trouvé:', candidate.email);
+    } else {
+      LOG('⚠️ Aucun email trouvé avec .coaXaZaR');
     }
 
-    LOG('Candidate =>', candidate);
-    return candidate;
+    /** -------------------------
+     *  EDUCATION (liste)
+     * ------------------------*/
+    const eduItems = document.querySelectorAll('.coaXng .group-item');
+    LOG('Éducations trouvées:', eduItems.length);
+
+    eduItems.forEach((item, i) => {
+      // ⚠️ le vrai titre du diplôme est dans .coaXns > div
+      const diploma = item.querySelector('.coaXns div')?.textContent?.trim();
+
+      if (diploma) {
+        candidate.education.push(diploma);
+      }
+    });
+
+    /** -------------------------
+     *  NAME
+     * ------------------------*/
+    candidate.name = textOf('.profile-name, .candidate-name, .coaXName');
+
+  } catch (err) {
+    console.error('[content.js] extractCandidateData error', err);
   }
+
+  LOG('Candidate =>', candidate);
+  return candidate;
+}
   // ==========================================================
 // Fonction utilitaire : extraire uniquement l'email du candidat
 // ==========================================================

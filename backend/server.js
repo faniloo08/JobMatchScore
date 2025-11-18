@@ -39,7 +39,31 @@ ${JSON.stringify(offer, null, 2)}
 Réponds sous ce format JSON:
 { "score": number, "verdict": string, "reasons": [string] }
 `;
+    function extractJson(str) {
+      // Trouve le premier vrai bloc JSON
+      const match = str.match(/\{[\s\S]*\}/);
+      if (!match) return null;
 
+      let json = match[0];
+
+      // Remplace les ; par des , sauf s'ils sont à l'intérieur d'un mot
+      json = json.replace(/";/g, "\",");
+      json = json.replace(/";/g, "\",");
+
+      // Supprime caractères invisibles unicode
+      json = json.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+
+      // Supprime trailing commas
+      json = json.replace(/,\s*([\]}])/g, "$1");
+
+      try {
+        return JSON.parse(json);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    //Appel modèle
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -59,53 +83,26 @@ Réponds sous ce format JSON:
 
 
     const data = await response.json();
-    let content = data.choices?.[0]?.message?.content || "{}";
+    const raw = data.choices?.[0]?.message?.content || "";
 
-    // Nettoyer la chaîne : supprimer tout avant/après le bloc JSON
-    content = content.trim();
+    // ⭐ Extraction ultra robuste
+    const parsed = extractJson(raw);
 
-    // Si le texte contient un bloc JSON, on l’extrait
-    const match = content.match(/{[\s\S]*}/);
-    if (match) {
-      content = match[0];
+    if (!parsed) {
+      return res.json({
+        error: "Invalid JSON from model",
+        raw
+      });
     }
 
-    // Supprimer les backticks ou autres caractères parasites
-    content = content.replace(/`/g, "").replace(/^```json|```$/g, "").trim();
-
-    const rawContent = data.choices?.[0]?.message?.content || "{}";
-
-    // 1️⃣ Extraire le premier bloc JSON trouvé
-    let jsonString = rawContent.match(/{[\s\S]*}/)?.[0] || "{}";
-
-    // 2️⃣ Supprimer backticks et caractères parasites
-    jsonString = jsonString.replace(/```json|```|`/g, "").trim();
-
-    // 3️⃣ Supprimer caractères invisibles ou unicode étranges
-    jsonString = jsonString.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-
-    // 4️⃣ Tenter de parser
-    let parsed;
-    try {
-      parsed = JSON.parse(jsonString);
-    } catch (err) {
-      console.warn("⚠️ Échec du parsing JSON, tentative de nettoyage supplémentaire:", err);
-
-      // Optionnel : tenter un dernier nettoyage
-      const cleaned = jsonString.replace(/,\s*([\]}])/g, "$1"); // supprime virgules avant fermeture
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch (err2) {
-        console.error("🔴 Échec final du parsing JSON:", cleaned);
-        parsed = { error: "Invalid JSON from model", raw: rawContent };
-      }
-    }
-
-    res.json(parsed);
+    // 👍 Si tout va bien
+    return res.json(parsed);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
+
+
 
 app.listen(5000, () => console.log("✅ Backend running on port 5000"));
