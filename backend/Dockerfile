@@ -1,19 +1,20 @@
-# backend/Dockerfile
+# Utilise une image Node.js officielle comme base
 FROM node:18-alpine
 
+# Définit le répertoire de travail dans le conteneur
 WORKDIR /app
 
-# Copier package.json et package-lock (si présent) pour tirer avantage du cache
+# Copie les fichiers package.json
 COPY package*.json ./
 
-# Installer dépendances en mode production
+# Installe les dépendances
 RUN npm install --production
 
-# Copier le reste
+# Copie le reste des fichiers de l'application
 COPY . .
 
-ENV PORT=5000
+# Expose le port 5000
 EXPOSE 5000
 
-# Lancer le serveur
+# Commande pour démarrer l'application
 CMD ["node", "server.js"]

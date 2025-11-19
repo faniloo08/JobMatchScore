@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  backend:
+    image: lemrammimel/jobmatch-backend:latest
+    container_name: jobmatch-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - OPENROUTER_KEY=${OPENROUTER_KEY}
+    restart: unless-stopped
