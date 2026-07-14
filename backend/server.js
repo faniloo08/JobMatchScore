@@ -74,7 +74,7 @@ Réponds sous ce format JSON:
         "X-Title": "JobMatch-AI"
       },
       body: JSON.stringify({
-        model: "z-ai/glm-4.5-air:free",
+        model: "meta-llama/llama-3.3-70b-instruct:free",
         messages: [
           { role: "system", content: "Tu es un assistant RH qui évalue l'adéquation entre un candidat et une offre d'emploi. Tu réponds UNIQUEMENT en JSON valide, sans texte avant ni après." },
           { role: "user", content: prompt }
