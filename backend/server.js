@@ -40,18 +40,18 @@ Réponds sous ce format JSON:
 { "score": number, "verdict": string, "reasons": [string] }
 `;
     function extractJson(str) {
-      // Trouve le premier vrai bloc JSON
+      // Trouve le premier vrai bloc JSON (le plus large possible)
       const match = str.match(/\{[\s\S]*\}/);
       if (!match) return null;
 
       let json = match[0];
 
-      // Remplace les ; par des , sauf s'ils sont à l'intérieur d'un mot
-      json = json.replace(/";/g, "\",");
-      json = json.replace(/";/g, "\",");
+      // Remplace les ; parasites en fin de valeur string par des virgules
+      json = json.replace(/";/g, '",');
 
-      // Supprime caractères invisibles unicode
-      json = json.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+      // Supprime UNIQUEMENT les caractères de contrôle problématiques
+      // en EXCLUANT \t (\u0009), \n (\u000A) et \r (\u000D) qui sont valides dans JSON
+      json = json.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
 
       // Supprime trailing commas
       json = json.replace(/,\s*([\]}])/g, "$1");
@@ -59,6 +59,7 @@ Réponds sous ce format JSON:
       try {
         return JSON.parse(json);
       } catch (e) {
+        console.error("[extractJson] Échec du parsing:", e.message, "\nJSON brut:", json.slice(0, 300));
         return null;
       }
     }
@@ -73,11 +74,12 @@ Réponds sous ce format JSON:
         "X-Title": "JobMatch-AI"
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3-8b-instruct",
+        model: "z-ai/glm-4.5-air:free",
         messages: [
-          { role: "system", content: "Tu es un assistant RH qui évalue l’adéquation entre un candidat et une offre d’emploi." },
+          { role: "system", content: "Tu es un assistant RH qui évalue l'adéquation entre un candidat et une offre d'emploi. Tu réponds UNIQUEMENT en JSON valide, sans texte avant ni après." },
           { role: "user", content: prompt }
-        ]
+        ],
+        response_format: { type: "json_object" }
       })
     });
 

@@ -77,7 +77,7 @@ async function analyzeMatch() {
 
             try {
               // 🔥 Appel IA à ton backend Meta
-              const res = await fetch("http://srv1057289.hstgr.cloud:5000/analyze", {
+              const res = await fetch("https://jobmatchscore.onrender.com/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ candidate: candidateData, offer: offerData })
@@ -86,17 +86,24 @@ async function analyzeMatch() {
               const analysisResults = await res.json();
               console.log('🤖 Résultats d\'analyse:', analysisResults);
 
+              // ✅ Vérifier que la réponse est valide (pas une erreur du backend)
+              if (!analysisResults || analysisResults.error || typeof analysisResults.score !== 'number') {
+                console.error('❌ Réponse invalide du backend:', analysisResults);
+                showError('Erreur d\'analyse : réponse invalide du serveur IA.');
+                return;
+              }
+
               displayResult(analysisResults);
 
-              // Injecter le score dans la page du candidat
-              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                  chrome.tabs.sendMessage(tabs[0].id, {
-                    action: "insertScore",
-                    score: analysisResults.score  // ✅ ici on utilise directement result
-                  });
-                }
-              });
+              // Injecter le score dans la page du candidat (onglet sauvegardé)
+              if (candidateTabId) {
+                chrome.tabs.sendMessage(candidateTabId, {
+                  action: "insertScore",
+                  score: analysisResults.score
+                });
+              } else {
+                console.warn('⚠️ candidateTabId introuvable, injection du score ignorée.');
+              }
             } catch (err) {
               console.error('Erreur IA:', err);
               showError('Erreur pendant l\'analyse IA.');
