@@ -18,9 +18,45 @@ const SYSTEM_PROMPT =
 function buildProviders() {
   const providers = [];
 
-  // OpenRouter — plusieurs modèles gratuits en cascade
+  // 1. Groq (Ultra-rapide) — Modèles gratuits disponibles sur Groq Free Tier
+  if (GROQ_API_KEY) {
+    providers.push({
+      name: "Groq (GPT-OSS 120B - clé 1)",
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: GROQ_API_KEY,
+      model: "openai/gpt-oss-120b"
+    });
+    providers.push({
+      name: "Groq (GPT-OSS 20B - clé 1)",
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: GROQ_API_KEY,
+      model: "openai/gpt-oss-20b"
+    });
+    providers.push({
+      name: "Groq (Qwen 3.8 27B - clé 1)",
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: GROQ_API_KEY,
+      model: "qwen/qwen3.8-27b"
+    });
+  }
+
+  if (GROQ_API_KEY_2) {
+    providers.push({
+      name: "Groq (GPT-OSS 120B - clé 2)",
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: GROQ_API_KEY_2,
+      model: "openai/gpt-oss-120b"
+    });
+    providers.push({
+      name: "Groq (GPT-OSS 20B - clé 2)",
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: GROQ_API_KEY_2,
+      model: "openai/gpt-oss-20b"
+    });
+  }
+
+  // 2. OpenRouter (Fallback) — Modèles gratuits
   if (OPENROUTER_KEY) {
-    // Modèle principal gratuit
     providers.push({
       name: "OpenRouter (Gemma 4)",
       url: "https://openrouter.ai/api/v1/chat/completions",
@@ -31,8 +67,6 @@ function buildProviders() {
         "X-Title": "JobMatch-AI"
       }
     });
-
-    // Fallback OpenRouter — autre modèle gratuit
     providers.push({
       name: "OpenRouter (Llama 3.1 8B)",
       url: "https://openrouter.ai/api/v1/chat/completions",
@@ -45,34 +79,6 @@ function buildProviders() {
     });
   }
 
-  // Groq — llama-3.3-70b-versatile est le bon ID officiel (confirmé oct 2026)
-  if (GROQ_API_KEY) {
-    providers.push({
-      name: "Groq (cle 1)",
-      url: "https://api.groq.com/openai/v1/chat/completions",
-      key: GROQ_API_KEY,
-      model: "llama-3.3-70b-versatile"
-    });
-  }
-  if (GROQ_API_KEY_2) {
-    providers.push({
-      name: "Groq (cle 2)",
-      url: "https://api.groq.com/openai/v1/chat/completions",
-      key: GROQ_API_KEY_2,
-      model: "llama-3.3-70b-versatile"
-    });
-  }
-
-  // Dernier fallback Groq — modèle plus léger qui a plus de chances d'être dispo
-  if (GROQ_API_KEY) {
-    providers.push({
-      name: "Groq (llama-3.1-8b)",
-      url: "https://api.groq.com/openai/v1/chat/completions",
-      key: GROQ_API_KEY,
-      model: "llama-3.1-8b-instant"
-    });
-  }
-
   return providers;
 }
 
@@ -82,71 +88,55 @@ function extractJson(str) {
 
   let json = match[0];
   json = json.replace(/";/g, '",');
-  // Supprime les caracteres de controle problematiques, en gardant \t \n \r
+  // Supprime les caractères de contrôle problématiques en gardant \t \n \r
   json = Array.from(json).filter(function(c){var k=c.charCodeAt(0);if(k===9||k===10||k===13)return true;if(k<32)return false;if(k>=127&&k<=159)return false;return true;}).join("");
   json = json.replace(/,\s*([\]}])/g, "$1");
 
   try {
     return JSON.parse(json);
   } catch (e) {
-    console.error("[extractJson] Echec du parsing:", e.message, "\nJSON brut:", json.slice(0, 300));
+    console.error("[extractJson] Échec du parsing:", e.message, "\nJSON brut:", json.slice(0, 300));
     return null;
   }
 }
 
-// Petit helper pour attendre N ms
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+// Appelle un fournisseur unique
+async function callProvider(provider, prompt) {
+  const response = await fetch(provider.url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${provider.key}`,
+      "Content-Type": "application/json",
+      ...(provider.extraHeaders || {})
+    },
+    body: JSON.stringify({
+      model: provider.model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" }
+    })
+  });
 
-// Appelle un fournisseur unique. Gère le retry sur 429 (rate limit).
-async function callProvider(provider, prompt, retries = 2) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const response = await fetch(provider.url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${provider.key}`,
-        "Content-Type": "application/json",
-        ...(provider.extraHeaders || {})
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" }
-      })
-    });
+  const data = await response.json().catch(() => null);
 
-    const data = await response.json().catch(() => null);
-
-    // Si rate-limité (429), on attend et on réessaie
-    if (response.status === 429 && attempt < retries) {
-      const waitSec = (attempt + 1) * 5; // 5s, 10s
-      console.warn(`⏳ ${provider.name}: rate-limit (429), retry dans ${waitSec}s... (tentative ${attempt + 1}/${retries})`);
-      await sleep(waitSec * 1000);
-      continue;
-    }
-
-    // Autre erreur HTTP
-    if (!response.ok) {
-      const apiMsg = data?.error?.message || JSON.stringify(data);
-      throw new Error(`HTTP ${response.status} — ${apiMsg}`);
-    }
-
-    const raw = data?.choices?.[0]?.message?.content || "";
-    if (!raw) {
-      throw new Error("reponse vide du modele");
-    }
-
-    const parsed = extractJson(raw);
-    if (!parsed) {
-      throw new Error(`JSON invalide renvoye par le modele: ${raw.slice(0, 200)}`);
-    }
-
-    return parsed;
+  if (!response.ok) {
+    const apiMsg = data?.error?.message || JSON.stringify(data);
+    throw new Error(`HTTP ${response.status} — ${apiMsg}`);
   }
 
-  throw new Error("Rate-limit persistant apres retries");
+  const raw = data?.choices?.[0]?.message?.content || "";
+  if (!raw) {
+    throw new Error("réponse vide du modèle");
+  }
+
+  const parsed = extractJson(raw);
+  if (!parsed) {
+    throw new Error(`JSON invalide renvoyé par le modèle: ${raw.slice(0, 200)}`);
+  }
+
+  return parsed;
 }
 
 app.post("/analyze", async (req, res) => {
@@ -182,28 +172,28 @@ Réponds sous ce format JSON:
   const providers = buildProviders();
 
   if (providers.length === 0) {
-    console.error("❌ Aucune cle API configuree (OPENROUTER_KEY / GROQ_API_KEY / GROQ_API_KEY_2).");
-    return res.status(500).json({ error: "Aucun fournisseur LLM configure cote serveur." });
+    console.error("❌ Aucune clé API configurée (OPENROUTER_KEY / GROQ_API_KEY / GROQ_API_KEY_2).");
+    return res.status(500).json({ error: "Aucun fournisseur LLM configuré côté serveur." });
   }
 
   const failures = [];
 
-  // Cascade : on essaie chaque fournisseur jusqu'au premier succes.
+  // Cascade : on essaie chaque fournisseur jusqu'au premier succès
   for (const provider of providers) {
     try {
       const parsed = await callProvider(provider, prompt);
-      console.log(`✅ Analyse reussie via ${provider.name} (modele ${provider.model}).`);
+      console.log(`✅ Analyse réussie via ${provider.name} (modèle ${provider.model}).`);
       return res.json(parsed);
     } catch (err) {
-      console.warn(`⚠️ Echec via ${provider.name}: ${err.message}`);
+      console.warn(`⚠️ Échec via ${provider.name}: ${err.message}`);
       failures.push(`${provider.name}: ${err.message}`);
     }
   }
 
-  // Tous les fournisseurs ont echoue.
-  console.error("❌ Tous les fournisseurs LLM ont echoue:\n" + failures.join("\n"));
+  // Tous les fournisseurs ont échoué
+  console.error("❌ Tous les fournisseurs LLM ont échoué:\n" + failures.join("\n"));
   return res.status(502).json({
-    error: "Tous les fournisseurs LLM ont echoue",
+    error: "Tous les fournisseurs LLM ont échoué",
     details: failures
   });
 });
