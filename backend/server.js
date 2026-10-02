@@ -19,12 +19,13 @@ const SYSTEM_PROMPT =
 function buildProviders() {
   const providers = [];
 
+  // OpenRouter — google/gemma-4-31b-it:free est confirmé gratuit
   if (OPENROUTER_KEY) {
     providers.push({
       name: "OpenRouter",
       url: "https://openrouter.ai/api/v1/chat/completions",
       key: OPENROUTER_KEY,
-      model: "meta-llama/llama-3.3-70b-instruct:free",
+      model: "google/gemma-4-31b-it:free",
       extraHeaders: {
         "HTTP-Referer": "https://jobmatchscore.onrender.com/",
         "X-Title": "JobMatch-AI"
@@ -32,13 +33,13 @@ function buildProviders() {
     });
   }
 
-  // Fallback Groq (compatible OpenAI). Deux cles pour tenir en cas de rate-limit.
+  // Fallback Groq — llama-3.3-70b-versatile est retiré, utiliser llama-3.3-70b-8192
   if (GROQ_API_KEY) {
     providers.push({
       name: "Groq (cle 1)",
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: GROQ_API_KEY,
-      model: "llama-3.3-70b-versatile"
+      model: "llama-3.3-70b-8192"
     });
   }
   if (GROQ_API_KEY_2) {
@@ -46,7 +47,7 @@ function buildProviders() {
       name: "Groq (cle 2)",
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: GROQ_API_KEY_2,
-      model: "llama-3.3-70b-versatile"
+      model: "llama-3.3-70b-8192"
     });
   }
 
